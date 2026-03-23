@@ -1,5 +1,6 @@
 # =============================================================================
 # entities/entity.py
+# BUG FIX #5: bog_witch ai_type "ghost" → "aggressive"
 # =============================================================================
 import random
 from typing import List, Optional
@@ -42,22 +43,22 @@ class Entity:
         self.level      = 1
         self.home_x     = x
         self.home_y     = y
-        self.home_radius= 8
+        self.home_radius = 8
         # Ruolo NPC e destinazione di lavoro
-        self.npc_role   = ""       # es. 'contadino','fabbro','bambino'...
-        self.work_x     = x        # destinazione lavoro (mattina/pomeriggio)
+        self.npc_role   = ""
+        self.work_x     = x
         self.work_y     = y
-        self.work_radius= 4        # raggio attorno al punto lavoro
-        self.tavern_x   = x        # destinazione sera (locanda/piazza)
+        self.work_radius = 4
+        self.tavern_x   = x
         self.tavern_y   = y
 
     def populate_shop(self):
         """Popola lo shop in base all'ai_type e al livello."""
         level = getattr(self, "level", 1)
-        rarity = ("common" if level < 3 else
+        rarity = ("common"   if level < 3 else
                   "uncommon" if level < 5 else
-                  "rare" if level < 7 else
-                  "epic" if level < 10 else "legendary")
+                  "rare"     if level < 7 else
+                  "epic"     if level < 10 else "legendary")
         shop_size = max(3, level // 2 + 2)
         if self.ai_type == "innkeeper":
             self.shop = [ITEM_GEN.generate_innkeeper_item(rarity)
@@ -67,8 +68,7 @@ class Entity:
                          for _ in range(shop_size)]
 
     def to_dict(self) -> dict:
-        """Serializza per il salvataggio JSON. Usa getattr con default per
-        compatibilità con entity create via __new__ (es. NPC villaggio)."""
+        """Serializza per il salvataggio JSON."""
         shop_data = []
         for item in getattr(self, "shop", []):
             try:
@@ -76,27 +76,27 @@ class Entity:
             except Exception:
                 pass
         return {
-            "name":       self.name,
-            "symbol":     self.symbol,
-            "x":          self.x,
-            "y":          self.y,
-            "health":     getattr(self, "health",     20),
-            "max_health": getattr(self, "max_health", 20),
-            "damage":     getattr(self, "damage",      0),
-            "speed":      getattr(self, "speed",     0.5),
-            "ai_type":    getattr(self, "ai_type",  "npc"),
-            "color":      list(getattr(self, "color", (0,255,255))),
-            "alive":      getattr(self, "alive",    True),
-            "dialogue":   getattr(self, "dialogue",  "..."),
-            "level":      getattr(self, "level",       1),
-            "defense":    getattr(self, "defense",     0),
-            "gold":       getattr(self, "gold",        0),
-            "shop":       shop_data,
-            "npc_role":   getattr(self, "npc_role",   ""),
-            "work_x":     getattr(self, "work_x",     self.x),
-            "work_y":     getattr(self, "work_y",     self.y),
-            "tavern_x":   getattr(self, "tavern_x",   self.x),
-            "tavern_y":   getattr(self, "tavern_y",   self.y),
+            "name":      self.name,
+            "symbol":    self.symbol,
+            "x":         self.x,
+            "y":         self.y,
+            "health":    getattr(self, "health", 20),
+            "max_health":getattr(self, "max_health", 20),
+            "damage":    getattr(self, "damage", 0),
+            "speed":     getattr(self, "speed", 0.5),
+            "ai_type":   getattr(self, "ai_type", "npc"),
+            "color":     list(getattr(self, "color", (0,255,255))),
+            "alive":     getattr(self, "alive", True),
+            "dialogue":  getattr(self, "dialogue", "..."),
+            "level":     getattr(self, "level", 1),
+            "defense":   getattr(self, "defense", 0),
+            "gold":      getattr(self, "gold", 0),
+            "shop":      shop_data,
+            "npc_role":  getattr(self, "npc_role", ""),
+            "work_x":    getattr(self, "work_x", self.x),
+            "work_y":    getattr(self, "work_y", self.y),
+            "tavern_x":  getattr(self, "tavern_x", self.x),
+            "tavern_y":  getattr(self, "tavern_y", self.y),
         }
 
     @staticmethod
@@ -107,22 +107,20 @@ class Entity:
             d.get("ai_type", "npc"), tuple(d.get("color", [0,255,255]))
         )
         e.max_health = d.get("max_health", e.health)
-        e.alive      = d.get("alive",  True)
+        e.alive      = d.get("alive", True)
         e.dialogue   = d.get("dialogue", "...")
-        e.level      = d.get("level",    1)
-        e.defense    = d.get("defense",  0)
+        e.level      = d.get("level", 1)
+        e.defense    = d.get("defense", 0)
         e.gold       = d.get("gold", 0)
         e.npc_role   = d.get("npc_role", "")
-        e.work_x     = d.get("work_x",   e.x)
-        e.work_y     = d.get("work_y",   e.y)
+        e.work_x     = d.get("work_x", e.x)
+        e.work_y     = d.get("work_y", e.y)
         e.tavern_x   = d.get("tavern_x", e.x)
         e.tavern_y   = d.get("tavern_y", e.y)
-        # Ripristina shop dal salvataggio
         saved_shop = d.get("shop", [])
         if saved_shop:
             e.shop = [Item.from_dict(i) for i in saved_shop if i]
         elif e.ai_type in ("merchant", "innkeeper"):
-            # Nessuno shop salvato: rigenera
             e.populate_shop()
         else:
             e.shop = []
@@ -131,39 +129,40 @@ class Entity:
 
 def make_entity(etype: str, x: int, y: int) -> "Entity":
     if etype == "wolf":
-        e = Entity("Wolf",   "w", x, y, 22, 8,  1.0, "aggressive", (220, 60, 60))
+        e = Entity("Wolf", "w", x, y, 22, 8, 1.0, "aggressive", (220, 60, 60))
         e.level = random.randint(1, 5); return e
     elif etype == "goblin":
-        e = Entity("Goblin", "g", x, y, 28, 7,  0.9, "aggressive", (60, 200, 60))
+        e = Entity("Goblin", "g", x, y, 28, 7, 0.9, "aggressive", (60, 200, 60))
         e.level = random.randint(1, 6); return e
     elif etype == "ghost":
-        e = Entity("Ghost",  "G", x, y, 32, 12, 0.8, "ghost",      (180, 180, 255))
+        e = Entity("Ghost", "G", x, y, 32, 12, 0.8, "ghost", (180, 180, 255))
         e.level = random.randint(2, 8); return e
     elif etype == "goblin_shaman":
         e = Entity("Goblin Shaman", "S", x, y, 40, 14, 0.7, "aggressive", (120, 220, 80))
         e.level = random.randint(4, 10); return e
     elif etype == "troll":
-        e = Entity("Troll",     "T", x, y, 90, 20, 0.6, "aggressive", (160, 120, 80))
+        e = Entity("Troll", "T", x, y, 90, 20, 0.6, "aggressive", (160, 120, 80))
         e.level = random.randint(8, 14); return e
     elif etype == "bog_witch":
-        e = Entity("Bog Witch", "B", x, y, 70, 18, 0.7, "ghost",      (100, 180, 120))
+        # FIX #5: era "ghost" (attraversava i muri), corretta in "aggressive"
+        e = Entity("Bog Witch", "B", x, y, 70, 18, 0.7, "aggressive", (100, 180, 120))
         e.level = random.randint(8, 14); return e
     elif etype == "deer":
-        return Entity("Deer",   "d", x, y, 15, 0,  1.2, "flee", (180, 140, 80))
+        return Entity("Deer",   "d", x, y, 15, 0, 1.2, "flee", (180, 140, 80))
     elif etype == "rabbit":
-        return Entity("Rabbit", "r", x, y,  8, 0,  1.4, "flee", (220, 200, 180))
+        return Entity("Rabbit", "r", x, y,  8, 0, 1.4, "flee", (220, 200, 180))
     elif etype == "bear":
-        e = Entity("Bear",  "b", x, y, 55, 14, 0.8, "aggressive", (140, 90, 50))
+        e = Entity("Bear", "b", x, y, 55, 14, 0.8, "aggressive", (140, 90, 50))
         e.level = random.randint(3, 8); return e
     elif etype == "fox":
         return Entity("Fox",  "f", x, y, 12, 0, 1.3, "flee", (200, 120, 40))
     elif etype == "boar":
-        e = Entity("Boar",  "o", x, y, 35, 10, 0.9, "aggressive", (160, 100, 60))
+        e = Entity("Boar", "o", x, y, 35, 10, 0.9, "aggressive", (160, 100, 60))
         e.level = random.randint(1, 4); return e
     elif etype == "merchant":
         e = Entity("Merchant", "M", x, y, 50, 2, 0.3, "merchant", (0, 220, 220))
         e.level = random.randint(1, 10)
-        e.gold  = random.randint(100, 400)
+        e.gold = random.randint(100, 400)
         e.populate_shop(); return e
     else:
         return Entity(random.choice(NPC_NAMES), "$", x, y,

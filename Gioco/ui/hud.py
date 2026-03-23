@@ -217,36 +217,36 @@ def draw_hud(screen, fonts, player, biome: str, time_str: str):
     pygame.draw.rect(screen, (10, 10, 18), pygame.Rect(0, HUD_Y, SCREEN_W, hud_h))
     pygame.draw.line(screen, (40, 40, 80), (0, HUD_Y), (SCREEN_W, HUD_Y), 1)
 
-    # ── Barre HP/ST/XP (colonna sinistra) ────────────────────────────────────
+    # ── Barre HP/ST/XP con etichetta + valore a destra ───────────────────────
     bar_w, bar_h = 200, 10
     bar_x = 28
-    for i, (lbl, pct, col) in enumerate([
-        ("HP", hp_pct, hp_col),
-        ("ST", st_pct, (50, 100, 220)),
-        ("XP", xp_pct, (200, 140, 0)),
-    ]):
+    fsm = fonts["small"]
+
+    bars = [
+        ("HP", hp_pct, hp_col,               f"{p.health}/{p.max_health}"),
+        ("ST", st_pct, (50, 100, 220),        f"{p.stamina}/{p.max_stamina}"),
+        ("XP", xp_pct, (200, 140, 0),         f"Lv.{p.level}"),
+    ]
+    for i, (lbl, pct, col, val_str) in enumerate(bars):
         by = HUD_Y + 4 + i * (bar_h + 5)
         pygame.draw.rect(screen, (33, 33, 44),  pygame.Rect(bar_x, by, bar_w, bar_h))
         pygame.draw.rect(screen, col,            pygame.Rect(bar_x, by, int(bar_w * pct), bar_h))
         pygame.draw.rect(screen, (65, 65, 105), pygame.Rect(bar_x, by, bar_w, bar_h), 1)
-        screen.blit(fonts["small"].render(lbl, True, (180, 180, 180)), (bar_x - 22, by))
+        screen.blit(fsm.render(lbl, True, (180, 180, 180)), (bar_x - 22, by))
+        val_surf = fsm.render(val_str, True, (200, 200, 200))
+        screen.blit(val_surf, (bar_x + bar_w + 4, by))
 
-    # ── Testo HUD (due righe, non sforano PANEL_X) ────────────────────────────
-    tx      = bar_x + bar_w + 12
-    max_w   = PANEL_X - tx - 4      # spazio disponibile fino al pannello laterale
-    fsm     = fonts["small"]
-    char_w  = max(1, fsm.size("A")[0])
-
-    row1 = (f"{p.name}  Age:{p.age} {p.life_stage.value}  "
-            f"HP:{p.health}/{p.max_health}  Gold:{p.gold}g  "
-            f"Lv.{p.level} XP:{p.xp}/{p.xp_to_next()}  K:{p.kills}")
-    row2 = (f"{p.char_class.value}  {biome}  {time_str}  "
-            f"[I]nv [E]int [Q]uest [J]ourn [Esc]Pause")
-
+    # ── Testo HUD (due righe) ─────────────────────────────────────────────────
+    tx    = bar_x + bar_w + 90   # spazio sufficiente dopo i valori barra
+    max_w = PANEL_X - tx - 4
+    char_w = max(1, fsm.size("A")[0])
     max_ch = max(10, max_w // char_w)
+
+    row1 = f"Age:{p.age} {p.life_stage.value}  Gold:{p.gold}g"
+    row2 = time_str
+
     screen.blit(fsm.render(row1[:max_ch], True, (220, 220, 150)), (tx, HUD_Y + 4))
     screen.blit(fsm.render(row2[:max_ch], True, (150, 200, 150)), (tx, HUD_Y + 22))
-
 
 # =============================================================================
 # OVERLAY NOTTE

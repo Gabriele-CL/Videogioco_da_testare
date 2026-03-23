@@ -1,5 +1,7 @@
 # =============================================================================
 # combat/combat.py — Logica del sistema di combattimento a turni
+# BUG FIX #6: Mani nude usa attack_damage() * 0.6 (rispetta ESSENZA e moltiplicatori)
+# BUG FIX #7: check INTRO gestisce sia DEFEAT che VICTORY (già presente, reso esplicito)
 # =============================================================================
 import random
 from enum import Enum, auto
@@ -54,17 +56,17 @@ class CombatState:
         enemy_roll  = random.randint(1, 20)
         self.player_first: bool = (player_roll >= enemy_roll)
 
-        self.focus: MenuFocus        = MenuFocus.BUTTONS
-        self.selected_button: int    = 0
-        self.submenu_cursor: int     = 0
-        self.flee_cursor: int        = 0
+        self.focus: MenuFocus    = MenuFocus.BUTTONS
+        self.selected_button: int = 0
+        self.submenu_cursor: int  = 0
+        self.flee_cursor: int     = 0
         self.info_popup: Optional[dict] = None
 
         self.guard_active: bool = False
 
-        self.log: List[str]     = []
+        self.log: List[str]       = []
         self.timed_log: List[dict] = []
-        self.floats: List[dict] = []
+        self.floats: List[dict]   = []
 
         self.loot_item  = None
         self.loot_shown = False
@@ -82,17 +84,14 @@ class CombatState:
         self.phase = CombatPhase.INTRO
 
     def _log(self, msg: str):
-        """Aggiunge un messaggio temporizzato (2s) nel pannello superiore."""
         self.add_log(msg)
 
     def add_log(self, text, color=None):
-        """Aggiunge un messaggio che dura 2 secondi nel pannello superiore."""
         self.timed_log.append({
             "text":  text,
             "timer": 2.0,
             "color": color or (160, 150, 180)
         })
-        # mantieni max 4 messaggi visibili contemporaneamente
         if len(self.timed_log) > 4:
             self.timed_log.pop(0)
 
@@ -112,12 +111,10 @@ class CombatState:
     # Update — chiamato ogni frame
     # ------------------------------------------------------------------
     def update(self, dt: float):
-        # aggiorna floating texts
         for f in self.floats:
             f["timer"] -= dt
         self.floats = [f for f in self.floats if f["timer"] > 0]
 
-        # aggiorna timer messaggi log
         for m in self.timed_log:
             m["timer"] -= dt
         self.timed_log = [m for m in self.timed_log if m["timer"] > 0]
@@ -130,6 +127,7 @@ class CombatState:
                 else:
                     self._enemy_attack()
                     self._check_end()
+                    # FIX #7: controlla sia DEFEAT che VICTORY prima di passare al turno player
                     if self.phase not in (CombatPhase.DEFEAT, CombatPhase.VICTORY):
                         self.phase = CombatPhase.PLAYER_TURN
 
@@ -258,10 +256,15 @@ class CombatState:
             if p.equipped_weapon:
                 options.append(p.equipped_weapon.name)
             choice = options[min(self.submenu_cursor, len(options) - 1)]
+
             if choice == "Mani nude":
-                dmg = max(1, int(3 * p.dmg_mult))
+                # FIX #6: era "max(1, int(3 * p.dmg_mult))" — ignorava ESSENZA e stats.
+                # Ora usa attack_damage() scalato al 60% (combattimento a mani nude meno efficace
+                # di un'arma, ma rispetta tutti i bonus ESSENZA/livello/moltiplicatori).
+                dmg = max(1, int(p.attack_damage() * 0.6))
             else:
                 dmg = p.attack_damage_with_crit()
+
             e.health -= dmg
             self._add_float(f"-{dmg}", "enemy")
             self.add_log(f"{p.name} attacca per {dmg} danni!", (255, 200, 100))
@@ -316,7 +319,7 @@ class CombatState:
         else:
             self.add_log("Fuga fallita!", (220, 80, 80))
             self.phase = CombatPhase.FLEE_FAILED
-            self.focus  = MenuFocus.BUTTONS
+        self.focus = MenuFocus.BUTTONS
 
     def _enemy_turn(self):
         self.phase = CombatPhase.ENEMY_TURN
@@ -342,9 +345,9 @@ class CombatState:
         p = self.player
 
         if e.health <= 0:
-            e.health  = 0
-            e.alive   = False
-            xp        = {"Wolf": 15, "Goblin": 20, "Ghost": 30}.get(e.name, 10)
+            e.health = 0
+            e.alive  = False
+            xp = {"Wolf": 15, "Goblin": 20, "Ghost": 30}.get(e.name, 10)
             self.xp_gained   = xp
             self.gold_gained = _r.randint(0, 10)
             if _r.random() < 0.4:

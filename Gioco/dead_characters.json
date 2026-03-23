@@ -1,19 +1,10 @@
 [
   {
-    "x": 60,
-    "y": -7,
-    "name": "Lgogs",
-    "age": 16,
-    "cause": "Ucciso da Goblin Shaman",
-    "level": 1,
-    "kills": 0
-  },
-  {
-    "x": -2,
-    "y": 20,
-    "name": "Lofofnjhsoms",
-    "age": 7,
-    "cause": "Ucciso da Wolf",
+    "x": -27,
+    "y": 77,
+    "name": "FG",
+    "age": 5,
+    "cause": "Ucciso da Goblin",
     "level": 1,
     "kills": 0
   }

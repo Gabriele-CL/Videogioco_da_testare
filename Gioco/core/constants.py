@@ -81,7 +81,7 @@ RARITY_COLORS = {
 }
 
 # ── Ciclo giorno/notte ────────────────────────────────────────────────────────
-SECONDS_PER_GAME_HOUR_BASE  = 4
+SECONDS_PER_GAME_HOUR_BASE  = 50   # 1 ora di gioco = 50s reali → 1 giorno = 20 min reali
 SECONDS_PER_GAME_DAY_BASE   = SECONDS_PER_GAME_HOUR_BASE * 24
 
 LIFE_STAGE_TIME_SCALE = {

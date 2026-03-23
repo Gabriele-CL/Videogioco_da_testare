@@ -115,7 +115,7 @@ except ImportError:
     TOWN_SAFE_RADIUS = 40
 
 # Raggio minimo garantito
-_SAFE_R = max(TOWN_SAFE_RADIUS, 40)
+_SAFE_R = max(TOWN_SAFE_RADIUS, 80)
 from entities.entity import make_entity, BIOME_SPAWNS
 import random as _random
 

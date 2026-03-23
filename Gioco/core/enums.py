@@ -18,24 +18,13 @@ class GameState(Enum):
     MERCHANT        = auto()
     DIALOG          = auto()
     QUEST_LOG       = auto()
+    JOURNAL         = auto()
     PAUSE           = auto()
     DEAD            = auto()
+    MAGIC_ASK       = auto()   # Dialogo SI/NO maestro di magia
     COMBAT          = auto()
 
-class CharClass(Enum):
-    WARRIOR = "Warrior"
-    ROGUE   = "Rogue"
-    MAGE    = "Mage"
-    RANGER  = "Ranger"
-    PALADIN = "Paladin"
 
-CLASS_DESC = {
-    CharClass.WARRIOR: "+30% HP | +20% ATK | Stile: mischia pesante",
-    CharClass.ROGUE:   "+30% Stamina | -20% HP | Crit x1.5 | Stile: furtivo",
-    CharClass.MAGE:    "-30% HP | Magie potenti | Stile: distanza",
-    CharClass.RANGER:  "-10% HP | Bilanciato | Stile: esplorazione",
-    CharClass.PALADIN: "+20% HP | +10% DEF | Rigenerazione | Stile: tank",
-}
 
 class LifeStage(Enum):
     CHILD = "Child"

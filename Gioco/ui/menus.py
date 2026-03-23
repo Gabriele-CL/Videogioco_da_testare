@@ -196,18 +196,4 @@ def draw_dead(screen, fonts, player, draw_overlay_fn):
 # ─────────────────────────────────────────────────────────────────────────────
 # Mantenuta per compatibilità col vecchio codice
 # ─────────────────────────────────────────────────────────────────────────────
-def draw_menu_class(screen, fonts, selected_class: int):
-    from core.enums import CharClass, CLASS_DESC
-    screen.fill((5, 5, 15))
-    title = fonts["large"].render("SCEGLI LA TUA CLASSE", True, (255, 220, 50))
-    screen.blit(title, (_center_x(title), 60))
-    for i, cls in enumerate(CharClass):
-        sel = (i == selected_class)
-        col = (255, 255, 0) if sel else (180, 180, 200)
-        prefix = ">> " if sel else "   "
-        screen.blit(fonts["bold"].render(f"{prefix}{cls.value}", True, col),
-                    (SCREEN_W // 2 - 200, 160 + i * 60))
-        screen.blit(fonts["small"].render(f"   {CLASS_DESC[cls]}", True, (150, 180, 150)),
-                    (SCREEN_W // 2 - 200, 182 + i * 60))
-    hint = fonts["normal"].render("SU/GIU per selezionare  INVIO per iniziare", True, (100, 200, 100))
-    screen.blit(hint, (_center_x(hint), SCREEN_H - 70))
+

@@ -211,7 +211,7 @@ def _draw_player_stats(screen, fonts, state, rect):
     screen.blit(hp_s, (x, y))
     y += hp_s.get_height() + 10
 
-    cls_s = fsm.render(p.char_class.value, True, C_DIM)
+    cls_s = fsm.render(p.life_stage.value, True, C_DIM)
     screen.blit(cls_s, (x, y))
 
     if state.guard_active:
