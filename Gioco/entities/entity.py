@@ -97,6 +97,15 @@ class Entity:
             "work_y":    getattr(self, "work_y", self.y),
             "tavern_x":  getattr(self, "tavern_x", self.x),
             "tavern_y":  getattr(self, "tavern_y", self.y),
+            "home_x":    getattr(self, "home_x", self.x),
+            "home_y":    getattr(self, "home_y", self.y),
+            "home_radius": getattr(self, "home_radius", 8),
+            "patrol_x":  getattr(self, "patrol_x", getattr(self, "home_x", self.x)),
+            "patrol_y":  getattr(self, "patrol_y", getattr(self, "home_y", self.y)),
+            "is_gate_guard": bool(getattr(self, "is_gate_guard", False)),
+            "sleep_x":   getattr(self, "sleep_x", None),
+            "sleep_y":   getattr(self, "sleep_y", None),
+            "outdoor_dest_set": bool(getattr(self, "outdoor_dest_set", False)),
         }
 
     @staticmethod
@@ -117,6 +126,15 @@ class Entity:
         e.work_y     = d.get("work_y", e.y)
         e.tavern_x   = d.get("tavern_x", e.x)
         e.tavern_y   = d.get("tavern_y", e.y)
+        e.home_x     = d.get("home_x", e.x)
+        e.home_y     = d.get("home_y", e.y)
+        e.home_radius= d.get("home_radius", 8)
+        e.patrol_x   = d.get("patrol_x", e.home_x)
+        e.patrol_y   = d.get("patrol_y", e.home_y)
+        e.is_gate_guard = bool(d.get("is_gate_guard", False))
+        e.sleep_x    = d.get("sleep_x", None)
+        e.sleep_y    = d.get("sleep_y", None)
+        e.outdoor_dest_set = bool(d.get("outdoor_dest_set", False))
         saved_shop = d.get("shop", [])
         if saved_shop:
             e.shop = [Item.from_dict(i) for i in saved_shop if i]

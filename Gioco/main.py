@@ -236,6 +236,19 @@ class Game:
             self.world.load_dict(chunk_data, self.seed)
             self.spawner = WorldSpawner(self.world)
             self.spawner.populated = set(self.world.chunks.keys())
+            # Ricostruisce strutture runtime (non salvate) e ripristina generatori procedurali
+            try:
+                self.world.rebuild_starting_town_runtime(0, 0)
+            except Exception:
+                pass
+            self.settlements = WorldSettlements(self.world)
+            sdata = data.get("settlements", {})
+            try:
+                self.settlements.evaluated = set(tuple(x) for x in sdata.get("evaluated", []))
+                self.settlements.centers   = [tuple(x) for x in sdata.get("centers", [])]
+            except Exception:
+                self.settlements.evaluated = set()
+                self.settlements.centers   = []
             self._preload_and_spawn(self.player.x, self.player.y)
             self.state        = GameState.PLAYING
             self.log(f"Bentornato, {self.player.name}!")
@@ -263,6 +276,10 @@ class Game:
                 "items_on_ground": [i.to_dict() for i in self.items_on_ground],
                 "tombstones":      self.tombstones,
                 "messages":        self.messages,
+                "settlements": {
+                    "evaluated": [list(x) for x in getattr(self.settlements, "evaluated", set())],
+                    "centers":   [list(x) for x in getattr(self.settlements, "centers", [])],
+                },
             }
             with open("savegame.json", "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)

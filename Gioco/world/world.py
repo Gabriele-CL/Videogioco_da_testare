@@ -22,6 +22,18 @@ class World:
         self.city_wall = None
         set_seed(seed)
 
+    def rebuild_starting_town_runtime(self, cx: int, cy: int):
+        """
+        Ricostruisce SOLO gli oggetti runtime (buildings/city_wall) per la città iniziale
+        senza modificare tiles/overrides/wall_chars caricati da save.
+
+        Serve dopo load: molte logiche (AI mercante/locanda, zone riservate, mura)
+        dipendono da oggetti che non sono serializzati.
+        """
+        tmp_tiles = {}
+        self.buildings, _ = place_starting_town(tmp_tiles, cx, cy)
+        self.city_wall, _ = place_city_walls(tmp_tiles, cx, cy)
+
     def get_wall_char(self, wx, wy):
         """Ritorna il char direzionale del muro edificio, o None se normale."""
         return self.wall_chars.get((wx, wy))

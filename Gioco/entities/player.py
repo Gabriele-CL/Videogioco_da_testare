@@ -78,6 +78,9 @@ class Player:
         # Contatori azioni per crescita tramite uso
         self._action_counts: dict = {}
 
+        # Accumulo interno (compatibilità save/load): usato da alcune build per heal over time
+        # Deve esistere per evitare errori in to_dict() anche se la feature non è attiva.
+        self._last_heal_accum: float = 0.0
 
 
 
@@ -317,7 +320,9 @@ class Player:
             "magic_revealed":   self.magic_revealed,
             "essenza":          self.essenza,
             "_action_counts":   self._action_counts,
-            "_last_heal_accum": self._last_heal_accum,
+            "_last_heal_accum": getattr(self, "_last_heal_accum", 0.0),
+            "max_age":          getattr(self, "max_age", random.randint(40, 100)),
+            "peaceful_days":    getattr(self, "peaceful_days", 0),
         }
 
     @staticmethod

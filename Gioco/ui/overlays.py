@@ -5,6 +5,21 @@
 import pygame
 from core.constants import SCREEN_W, SCREEN_H, RARITY_COLORS
 
+def _same_item(a, b) -> bool:
+    """
+    Confronto robusto item equip/slot anche dopo save/load:
+    evita dipendenza dall'identità oggetto (is), che cambia con from_dict().
+    """
+    if a is None or b is None:
+        return False
+    return (
+        a.name == b.name
+        and a.item_type == b.item_type
+        and a.rarity == b.rarity
+        and a.stats == b.stats
+        and a.value == b.value
+    )
+
 
 def draw_overlay(screen, fonts, title: str, lines: list, y_start: int = 80):
     """
@@ -42,7 +57,14 @@ def draw_inventory(screen, fonts, player):
     p = player; lines = []
     for i, item in enumerate(p.inventory):
         prefix = ">" if i == p.inv_cursor else " "
-        eq     = "[E]" if (item is p.equipped_weapon or item is p.equipped_armor) else ""
+        is_equipped = any(
+            _same_item(item, eq_item)
+            for eq_item in (
+                p.equipped_weapon, p.equipped_armor, p.equipped_head,
+                p.equipped_legs, p.equipped_shield, p.equipped_boots
+            )
+        )
+        eq     = "[E]" if is_equipped else ""
         col    = RARITY_COLORS.get(item.rarity, (200,200,200))
         extra  = ""
         if item.item_type   == "weapon": extra = f"  dmg:{item.stats.get('damage',0)}"
