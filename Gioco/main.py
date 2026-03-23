@@ -119,8 +119,11 @@ class Game:
         self.sell_mode      = False
         self.sell_cursor    = 0
         self.dialog_ent:   Optional[Entity] = None
+        self.dialog_text_override: Optional[str] = None
         self.magic_aura_timer: float = 0.0   # > 0 = bagliore magia attivo
         self.magic_aura_has_power: bool = False
+        self.magic_pending_test: bool = False
+        self.magic_choice_yes: bool = True
         self.last_dx: int = 0   # ultima direzione movimento player
         self.last_dy: int = 1   # default: giù
         self.merchant_ent: Optional[Entity] = None
@@ -486,23 +489,29 @@ class Game:
                 # Insegnante di magia: test speciale se il player ha < 8 anni non può
                 if getattr(e, "npc_role", "") == "ins_magia":
                     if p.age < 8:
-                        self.log(f'{e.name}: "Torna quando sarai più grande..."')
+                        self.dialog_ent = e
+                        self.dialog_text_override = "Sei ancora troppo piccolo, torna quando sarai più grande"
+                        self.magic_pending_test = False
+                        self.state = GameState.DIALOG
                         return
                     if not getattr(p, "magic_revealed", False):
-                        # Primo incontro: attiva test magico
-                        p.magic_revealed = True
-                        self.log(f'{e.name}: "Lascia che provi a risvegliarti..."')
-                        self.magic_aura_timer = 2.5
-                        self.magic_aura_has_power = (getattr(p, "magic_factor", 0) == 1)
+                        # Primo incontro: mostra prima un dialogo in basso come gli altri NPC.
+                        self.dialog_ent = e
+                        self.dialog_text_override = "Vuoi che verifichi se la magia scorre in te?"
+                        self.magic_pending_test = True
+                        self.state = GameState.DIALOG
                         return
                     else:
                         # Già testato: dialogo normale
+                        self.dialog_ent = e
                         if getattr(p, "magic_factor", 0) == 1:
-                            self.log(f'{e.name}: "La magia è in te. Coltivala."')
+                            self.dialog_text_override = "La magia è in te. Coltivala."
                         else:
-                            self.log(f'{e.name}: "Il mondo ha bisogno anche di chi non usa la magia."')
+                            self.dialog_text_override = "Il mondo ha bisogno anche di chi non usa la magia."
+                        self.state = GameState.DIALOG
                         return
                 self.dialog_ent = e
+                self.dialog_text_override = None
                 self.state = GameState.DIALOG
                 self.log(f'{e.name}: "{e.dialogue}"')
                 # ESSENZA Carisma: cresce con i dialoghi
@@ -1293,7 +1302,7 @@ class Game:
             draw_essenza_confirm(self.screen, self.fonts, self.essenza_yes)
 
         elif s in (GameState.PLAYING, GameState.INVENTORY, GameState.MERCHANT,
-                   GameState.DIALOG, GameState.QUEST_LOG, GameState.PAUSE):
+                   GameState.DIALOG, GameState.QUEST_LOG, GameState.PAUSE, GameState.MAGIC_ASK):
             if self.player:
                 pygame.draw.rect(self.screen,(10,12,10),pygame.Rect(PANEL_X,0,PANEL_W,VIEW_ROWS*TILE_H))
                 self._draw_world()
@@ -1332,8 +1341,21 @@ class Game:
                                   self.merchant_ent, self.shop_cursor,
                                   self.sell_mode, self.sell_cursor)
                 elif s == GameState.DIALOG and self.dialog_ent:
-                    try: draw_dialog(self.screen, self.fonts, self.player, self.dialog_ent)
-                    except: draw_dialog(self.screen, self.fonts, self.dialog_ent)
+                    try:
+                        draw_dialog(self.screen, self.fonts, self.player, self.dialog_ent, self.dialog_text_override)
+                    except:
+                        draw_dialog(self.screen, self.fonts, self.player, self.dialog_ent)
+                elif s == GameState.MAGIC_ASK and self.dialog_ent:
+                    choice = "SI" if self.magic_choice_yes else "NO"
+                    _ov(
+                        "MAESTRO DI MAGIA",
+                        [
+                            ("Vuoi procedere con il test magico?", (220, 220, 220)),
+                            ("", None),
+                            (f"Scelta: [{choice}]   (LEFT/RIGHT cambia)", (255, 220, 80)),
+                            ("INVIO conferma   ESC annulla", (120, 200, 120)),
+                        ],
+                    )
                 elif s == GameState.QUEST_LOG:
                     draw_quest_log(self.screen, self.fonts, self.player)
 
@@ -1451,8 +1473,35 @@ class Game:
                     if getattr(self, "merchant_pending", False):
                         self.merchant_pending = False
                         self.state = GameState.MERCHANT
+                    elif getattr(self, "magic_pending_test", False):
+                        self.magic_pending_test = False
+                        self.magic_choice_yes = True
+                        self.state = GameState.MAGIC_ASK
                     else:
+                        self.dialog_text_override = None
                         self.state = GameState.PLAYING
+
+            elif self.state == GameState.MAGIC_ASK:
+                if event.type == pygame.KEYDOWN:
+                    if event.key in (pygame.K_LEFT, pygame.K_RIGHT):
+                        self.magic_choice_yes = not self.magic_choice_yes
+                    elif event.key == pygame.K_ESCAPE:
+                        self.dialog_text_override = None
+                        self.state = GameState.PLAYING
+                    elif event.key == pygame.K_RETURN:
+                        if self.magic_choice_yes and self.player and self.dialog_ent:
+                            p = self.player
+                            p.magic_revealed = True
+                            self.magic_aura_timer = 2.5
+                            self.magic_aura_has_power = (getattr(p, "magic_factor", 0) == 1)
+                            if self.magic_aura_has_power:
+                                self.dialog_text_override = "C'e' della magia in te!"
+                            else:
+                                self.dialog_text_override = "Mi spiace... non c'e' potere in te."
+                            self.state = GameState.DIALOG
+                        else:
+                            self.dialog_text_override = "Va bene. Torna quando te la sentirai."
+                            self.state = GameState.DIALOG
 
             elif self.state == GameState.QUEST_LOG:
                 if event.type == pygame.KEYDOWN:

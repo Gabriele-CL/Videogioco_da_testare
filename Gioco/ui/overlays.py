@@ -152,7 +152,7 @@ def draw_merchant(screen, fonts, player, merchant, shop_cursor, sell_mode=False,
 
 
 
-def draw_dialog(screen, fonts, player, entity):
+def draw_dialog(screen, fonts, player, entity, dialog_text=None):
     """
     Pannello dialogo in basso schermo (~160px). Nome NPC + testo + quest opzionale.
     """
@@ -176,8 +176,9 @@ def draw_dialog(screen, fonts, player, entity):
     screen.blit(nbg, (px + 10, py + 8))
     screen.blit(name_surf, (px + 21, py + 10))
 
-    # Testo dialogo
-    screen.blit(fonts["normal"].render(f'"{e.dialogue}"', True, (210, 210, 210)),
+    # Testo dialogo (puo' essere sovrascritto dal chiamante per dialoghi contestuali)
+    text = dialog_text if dialog_text is not None else e.dialogue
+    screen.blit(fonts["normal"].render(f'"{text}"', True, (210, 210, 210)),
                 (px + 20, py + 42))
 
     # Quest se disponibile
