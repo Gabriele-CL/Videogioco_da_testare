@@ -12,7 +12,7 @@ VIEW_COLS = 61
 VIEW_ROWS = 30
 
 CHUNK_SIZE = 32
-WORLD_LIMIT = 500
+WORLD_LIMIT = 1200
 FPS = 30
 
 # ── Tipi di tile ──────────────────────────────────────────────────────────────
@@ -26,6 +26,8 @@ FLOOR    = 6   # pavimento interno di un edificio
 DOOR     = 7   # porta (attraversabile)
 BUILDING = 8   # muro esterno edificio (non attraversabile)
 DEN      = 9   # tana lupi (non attraversabile, spawn point)
+CAMP     = 14  # accampamento/marker banda
+DUNGEON  = 15  # ingresso dungeon/marker
 
 TILE_CHAR = {
     GRASS:    "·",
@@ -38,6 +40,8 @@ TILE_CHAR = {
     DOOR:     "+",
     BUILDING: "#",
     DEN:      "W",   # tana lupi
+    CAMP:     "A",
+    DUNGEON:  "D",
 }
 TILE_COLOR = {
     GRASS:    (45, 160, 45),
@@ -50,6 +54,8 @@ TILE_COLOR = {
     DOOR:     (220, 160, 60),
     BUILDING: (170, 120, 70),
     DEN:      (180, 60, 40),
+    CAMP:     (220, 190, 60),
+    DUNGEON:  (70, 120, 255),
 }
 TILE_BG = {
     GRASS:    (8, 22, 8),
@@ -62,6 +68,8 @@ TILE_BG = {
     DOOR:     (50, 30, 10),
     BUILDING: (28, 18, 8),
     DEN:      (40, 10, 10),
+    CAMP:     (40, 30, 0),
+    DUNGEON:  (6, 12, 40),
 }
 
 # Caratteri direzionali muri edificio

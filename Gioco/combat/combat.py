@@ -107,6 +107,15 @@ class CombatState:
     def _add_float(self, text: str, side: str, color=(255, 240, 80)):
         self.floats.append({"text": text, "side": side, "timer": 1.2, "color": color})
 
+    def _enemy_attack_power(self) -> int:
+        e = self.enemy
+        bonus = 0
+        for slot in ("equipped_weapon",):
+            item = getattr(e, slot, None)
+            if item:
+                bonus += item.stats.get("damage", 0)
+        return max(1, getattr(e, "damage", 0) + bonus)
+
     # ------------------------------------------------------------------
     # Update — chiamato ogni frame
     # ------------------------------------------------------------------
@@ -332,7 +341,7 @@ class CombatState:
         p         = self.player
         e         = self.enemy
         def_bonus = p.defense() + (3 if self.guard_active else 0)
-        dmg       = max(0, e.damage - def_bonus)
+        dmg       = max(1, self._enemy_attack_power() - def_bonus)
         p.health -= dmg
         self._add_float(f"-{dmg}", "player", (255, 80, 80))
         self.add_log(f"{e.name} attacca {p.name} per {dmg} danni!", (255, 100, 100))

@@ -1,5 +1,4 @@
 from entities.player import Player
-from entities.quest import Quest
 from items.item import Item
 
 
@@ -17,9 +16,6 @@ def test_player_to_dict_from_dict_roundtrip_keeps_core_state():
     p.equipped_weapon = sword
     p.equipped_armor = armor
 
-    q = Quest("q_test", "Test Quest", "Do things", "NPC", "kill", "Wolf", 2, 10, 20)
-    p.active_quests.append(q)
-    p.completed_quests.append("q_old")
 
     data = p.to_dict()
     restored = Player.from_dict(data)
@@ -38,6 +34,3 @@ def test_player_to_dict_from_dict_roundtrip_keeps_core_state():
     assert restored.equipped_weapon.name == "Sword"
     assert restored.equipped_armor is not None
     assert restored.equipped_armor.name == "Armor"
-    assert len(restored.active_quests) == 1
-    assert restored.active_quests[0].qid == "q_test"
-    assert restored.completed_quests == ["q_old"]

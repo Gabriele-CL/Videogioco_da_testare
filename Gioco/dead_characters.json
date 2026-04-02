@@ -7,5 +7,131 @@
     "cause": "Ucciso da Goblin",
     "level": 1,
     "kills": 0
+  },
+  {
+    "x": -53,
+    "y": -127,
+    "name": "G",
+    "age": 5,
+    "cause": "Ucciso da Wolf",
+    "level": 1,
+    "kills": 0
+  },
+  {
+    "x": 2,
+    "y": 41,
+    "name": "ff",
+    "age": 5,
+    "cause": "Ucciso da Wolf",
+    "level": 1,
+    "kills": 0
+  },
+  {
+    "x": -9,
+    "y": -130,
+    "name": "Ghjkkk",
+    "age": 5,
+    "cause": "Ucciso da Troll",
+    "level": 1,
+    "kills": 0
+  },
+  {
+    "x": -41,
+    "y": 139,
+    "name": "Popo",
+    "age": 5,
+    "cause": "Ucciso da Orc",
+    "level": 1,
+    "kills": 0
+  },
+  {
+    "x": -198,
+    "y": 499,
+    "name": "Roma",
+    "age": 5,
+    "cause": "Ucciso da Wolf",
+    "level": 1,
+    "kills": 0
+  },
+  {
+    "x": -40,
+    "y": 37,
+    "name": "Test",
+    "age": 6,
+    "cause": "Ucciso da Boar",
+    "level": 1,
+    "kills": 0
+  },
+  {
+    "x": 0,
+    "y": 5,
+    "name": "Test",
+    "age": 5,
+    "cause": "Ucciso da Guardia Reale",
+    "level": 1,
+    "kills": 0
+  },
+  {
+    "x": -16,
+    "y": 52,
+    "name": "DD",
+    "age": 5,
+    "cause": "Ucciso da Bandit",
+    "level": 1,
+    "kills": 0
+  },
+  {
+    "x": -500,
+    "y": -318,
+    "name": "D",
+    "age": 5,
+    "cause": "Ucciso da Ghost",
+    "level": 1,
+    "kills": 0
+  },
+  {
+    "x": 0,
+    "y": -4,
+    "name": "F",
+    "age": 5,
+    "cause": "Ucciso da Guardia Reale",
+    "level": 1,
+    "kills": 0
+  },
+  {
+    "x": 0,
+    "y": -4,
+    "name": "FF",
+    "age": 5,
+    "cause": "Ucciso da Guardia Reale",
+    "level": 1,
+    "kills": 0
+  },
+  {
+    "x": 0,
+    "y": -2,
+    "name": "D",
+    "age": 5,
+    "cause": "Ucciso da Guardia Reale",
+    "level": 1,
+    "kills": 0
+  },
+  {
+    "x": 0,
+    "y": 6,
+    "name": "f",
+    "age": 5,
+    "cause": "Ucciso da Guardia Reale",
+    "level": 1,
+    "kills": 0
+  },
+  {
+    "x": 0,
+    "y": -3,
+    "name": "F",
+    "age": 5,
+    "cause": "Ucciso da Guardia Reale",
+    "level": 1,
+    "kills": 0
   }
 ]

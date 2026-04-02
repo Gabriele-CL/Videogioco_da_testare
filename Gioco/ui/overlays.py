@@ -1,5 +1,5 @@
 # =============================================================================
-# ui/overlays.py — Overlay: inventario, mercante, dialogo, quest log.
+# ui/overlays.py — Overlay: inventario, mercante, dialogo.
 # =============================================================================
 
 import pygame
@@ -154,7 +154,7 @@ def draw_merchant(screen, fonts, player, merchant, shop_cursor, sell_mode=False,
 
 def draw_dialog(screen, fonts, player, entity, dialog_text=None):
     """
-    Pannello dialogo in basso schermo (~160px). Nome NPC + testo + quest opzionale.
+    Pannello dialogo in basso schermo (~160px). Nome NPC + testo.
     """
     if not entity: return
     e = entity
@@ -181,38 +181,6 @@ def draw_dialog(screen, fonts, player, entity, dialog_text=None):
     screen.blit(fonts["normal"].render(f'"{text}"', True, (210, 210, 210)),
                 (px + 20, py + 42))
 
-    # Quest se disponibile
-    row = py + 72
-    if (e.has_quest and e.quest and not e.quest.completed
-            and e.quest.qid not in player.completed_quests):
-        screen.blit(fonts["small"].render(f"Quest: {e.quest.title}", True, (255, 200, 50)),
-                    (px + 20, row)); row += 20
-        screen.blit(fonts["small"].render(f"  {e.quest.desc}", True, (160, 160, 160)),
-                    (px + 20, row)); row += 18
-        screen.blit(fonts["small"].render(
-            f"  Reward: {e.quest.reward_gold}g  +{e.quest.reward_xp}xp",
-            True, (120, 200, 120)), (px + 20, row))
-
     # Hint chiusura
     hint = fonts["small"].render("ESC – chiudi", True, (100, 155, 100))
     screen.blit(hint, (px + PW - hint.get_width() - 14, py + PH - 20))
-
-
-def draw_quest_log(screen, fonts, player):
-    """
-    Overlay diario quest: progresso di ogni missione attiva
-    e contatore quest completate.
-    """
-    p = player; lines = []
-    if not p.active_quests:
-        lines = [("  No active quests. Talk to NPCs!", (180,180,180))]
-    else:
-        for q in p.active_quests:
-            col = (100,255,100) if q.completed else (255,200,50)
-            lines.append((f"[{q.progress_str}]  {q.title}", col))
-            lines.append((f"   {q.desc}",                   (160,160,160)))
-            lines.append((f"   Reward: {q.reward_gold}g +{q.reward_xp}xp", (120,200,120)))
-            lines.append(("", None))
-    lines += [(f"Completed: {len(p.completed_quests)}", (100,200,100)), ("", None),
-              ("Q/Esc – Close", (100,180,100))]
-    draw_overlay(screen, fonts, "QUEST LOG", lines)

@@ -2,7 +2,6 @@ import random
 from typing import List, Optional
 from core.enums import LifeStage
 from items.item import Item
-from entities.quest import Quest
 
 # Secondi di game_time reali necessari per invecchiare di 1 anno, per fase vita
 # 1 anno = 1 giorno di gioco (20 min reali). Uniforme per tutte le fasi.
@@ -44,10 +43,6 @@ class Player:
         self.equipped_legs:   Optional[Item] = None
         self.equipped_shield: Optional[Item] = None
         self.equipped_boots:  Optional[Item] = None
-
-        self.active_quests:    List[Quest] = []
-        self.completed_quests: List[str]   = []
-
 
         self.alive       = True
         self.death_cause = ""
@@ -228,10 +223,6 @@ class Player:
         """Sconto acquisti. Es: Carisma 5 → 4%"""
         return (self.essenza.get("Carisma", 1) - 1) * 0.01
 
-    def quest_chance_bonus(self) -> float:
-        """Bonus probabilità quest NPC. Es: Carisma 5 → +0.08"""
-        return (self.essenza.get("Carisma", 1) - 1) * 0.02
-
     def aggro_reduction(self) -> float:
         """Riduzione raggio aggro nemici. Es: Percezione 5 → 0.08"""
         return (self.essenza.get("Percezione", 1) - 1) * 0.02
@@ -314,8 +305,6 @@ class Player:
             "equipped_legs":    _item(self.equipped_legs),
             "equipped_shield":  _item(self.equipped_shield),
             "equipped_boots":   _item(self.equipped_boots),
-            "active_quests":    [q.to_dict() for q in self.active_quests],
-            "completed_quests": self.completed_quests,
             "magic_factor":     self.magic_factor,
             "magic_revealed":   self.magic_revealed,
             "essenza":          self.essenza,
@@ -352,8 +341,6 @@ class Player:
         p.equipped_legs    = _item("equipped_legs")
         p.equipped_shield  = _item("equipped_shield")
         p.equipped_boots   = _item("equipped_boots")
-        p.active_quests    = [Quest.from_dict(q) for q in d.get("active_quests", [])]
-        p.completed_quests = d.get("completed_quests", [])
         p.magic_factor     = d.get("magic_factor", random.randint(0, 1))
         p.magic_revealed   = d.get("magic_revealed", False)
         p.essenza          = d.get("essenza", {a: 1 for a in

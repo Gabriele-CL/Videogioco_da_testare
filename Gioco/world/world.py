@@ -1,9 +1,10 @@
 # world/world.py
 import random
 from core.constants import *
+from world.layout import WorldLayout
 from world.chunk import generate_chunk, set_seed
 from world.buildings import (Building, place_starting_town, place_city_walls,
-                              place_village, spawn_village_npcs,
+                              place_village, place_capital_city, spawn_village_npcs,
                               spawn_village_npcs_small, spawn_guards,
                               FLOOR, DOOR)
 
@@ -12,7 +13,7 @@ PASSABLE_GHOST = PASSABLE | {WALL}               # fantasmi passano i muri
 
 
 class World:
-    def __init__(self, seed: int, entities: list):
+    def __init__(self, seed: int, entities: list, bootstrap_static: bool = True):
         self.seed      = seed
         self.entities  = entities
         self.chunks    = {}          # (cx,cy) -> {tiles, biome}
@@ -20,19 +21,42 @@ class World:
         self.wall_chars= {}          # (wx,wy)  -> char direzionale (|, _, +)
         self.buildings = []
         self.city_wall = None
+        self.capital_walls = []
+        self.layout    = WorldLayout(seed)
         set_seed(seed)
+        if bootstrap_static:
+            self.bootstrap_static_landmarks()
+
+    def bootstrap_static_landmarks(self):
+        """
+        Piazzamento iniziale dei grandi punti fissi del mondo.
+        Idempotente: se i landmark sono già presenti negli entity list/overrides,
+        non li duplica.
+        """
+        for landmark in self.layout.capitals:
+            self._ensure_chunk(landmark.x // CHUNK_SIZE, landmark.y // CHUNK_SIZE)
+            existing = any(
+                getattr(e, "name", "") == landmark.name and e.x == landmark.x and e.y == landmark.y
+                for e in self.entities
+            )
+            if existing:
+                continue
+            buildings, wc, city_wall = place_capital_city(self.overrides, self.wall_chars, self.entities, landmark.x, landmark.y)
+            self.buildings.extend(buildings)
+            self.wall_chars.update(wc)
+            self.capital_walls.append(city_wall)
 
     def rebuild_starting_town_runtime(self, cx: int, cy: int):
         """
         Ricostruisce SOLO gli oggetti runtime (buildings/city_wall) per la città iniziale
         senza modificare tiles/overrides/wall_chars caricati da save.
 
-        Serve dopo load: molte logiche (AI mercante/locanda, zone riservate, mura)
-        dipendono da oggetti che non sono serializzati.
+        La città iniziale è ora un capitale, quindi il runtime va ricostruito con
+        place_capital_city su un buffer separato.
         """
         tmp_tiles = {}
-        self.buildings, _ = place_starting_town(tmp_tiles, cx, cy)
-        self.city_wall, _ = place_city_walls(tmp_tiles, cx, cy)
+        tmp_entities = []
+        self.buildings, _, self.city_wall = place_capital_city(tmp_tiles, {}, tmp_entities, cx, cy)
 
     def get_wall_char(self, wx, wy):
         """Ritorna il char direzionale del muro edificio, o None se normale."""
@@ -44,7 +68,7 @@ class World:
 
     def _ensure_chunk(self, cx, cy):
         if (cx, cy) not in self.chunks:
-            self.chunks[(cx, cy)] = generate_chunk(cx, cy)
+            self.chunks[(cx, cy)] = generate_chunk(cx, cy, self.layout)
 
     def preload_around(self, wx, wy, radius=2):
         cx, cy = self._cx_cy(wx, wy)
@@ -72,11 +96,34 @@ class World:
     def is_passable_ghost(self, wx, wy):
         return self.get_tile(wx, wy) in PASSABLE_GHOST
 
+    def is_safe_zone(self, wx: int, wy: int) -> bool:
+        """
+        Zone protette attorno a capitali e nuclei urbani.
+        Usata per evitare spawn ostili troppo vicini alle città principali.
+        """
+        if self.layout and self.layout.is_capital_zone(wx, wy):
+            return True
+        return (wx * wx + wy * wy) < (TOWN_SAFE_RADIUS * TOWN_SAFE_RADIUS)
+
     # ── bioma ─────────────────────────────────────────────────────────────────
     def get_biome_at(self, wx, wy):
         cx, cy = self._cx_cy(wx, wy)
         self._ensure_chunk(cx, cy)
         return self.chunks[(cx, cy)].get("biome", "Grassland")
+
+    def peek_biome_at(self, wx, wy):
+        """
+        Ritorna il bioma senza generare chunk nuovi.
+        Utile per UI e preview che non devono caricare il mondo.
+        """
+        cx, cy = self._cx_cy(wx, wy)
+        chunk = self.chunks.get((cx, cy))
+        if chunk is not None:
+            return chunk.get("biome", "Grassland")
+        if self.layout:
+            from world.chunk import get_biome
+            return get_biome(cx, cy)
+        return "Grassland"
 
     # ── città iniziale ────────────────────────────────────────────────────────
     def place_starting_town(self, cx: int, cy: int):
@@ -145,7 +192,7 @@ def _weighted_pick(entries, is_night: bool):
 
 
 def _is_safe_zone(wx: int, wy: int) -> bool:
-    """True se il tile è nel raggio di sicurezza della città di partenza (0,0)."""
+    """Compat helper legacy: mantenuto per compatibilità interna."""
     return (wx * wx + wy * wy) < (_SAFE_R * _SAFE_R)
 
 
@@ -176,10 +223,98 @@ def _place_den(world_tiles: dict, wall_chars: dict, cx: int, cy: int):
     return None
 
 
+def _place_camp_marker(world_tiles: dict, wall_chars: dict, cx: int, cy: int):
+    CHUNK_SIZE = 32
+    for _ in range(14):
+        ox = _random.randint(3, CHUNK_SIZE - 6)
+        oy = _random.randint(3, CHUNK_SIZE - 6)
+        bx = cx * CHUNK_SIZE + ox
+        by = cy * CHUNK_SIZE + oy
+        if any(world_tiles.get((bx + dx, by + dy), GRASS) not in (GRASS, FOREST, ROAD)
+               for dy in range(4) for dx in range(4)):
+            continue
+        for dy in range(3):
+            for dx in range(3):
+                tx, ty = bx + dx, by + dy
+                world_tiles[(tx, ty)] = CAMP
+                wall_chars[(tx, ty)] = "^"
+        return (bx + 1, by + 1)
+    return None
+
+
+def _place_dungeon_marker(world_tiles: dict, wall_chars: dict, cx: int, cy: int):
+    CHUNK_SIZE = 32
+    for _ in range(10):
+        ox = _random.randint(2, CHUNK_SIZE - 4)
+        oy = _random.randint(2, CHUNK_SIZE - 4)
+        bx = cx * CHUNK_SIZE + ox
+        by = cy * CHUNK_SIZE + oy
+        if any(world_tiles.get((bx + dx, by + dy), GRASS) not in (GRASS, FOREST, ROAD, WALL)
+               for dy in range(3) for dx in range(3)):
+            continue
+        world_tiles[(bx + 1, by + 1)] = DUNGEON
+        wall_chars[(bx + 1, by + 1)] = "*"
+        return (bx + 1, by + 1)
+    return None
+
+
 class WorldSpawner:
     def __init__(self, world: "World"):
         self.world      = world
         self.populated  : set = set()
+        self.generated_pois: set = set()
+        self.poi_markers: dict = {}
+
+    def bootstrap_all(self):
+        """Popola subito tutti i POI selvaggi del layout."""
+        CHUNK_SIZE = 32
+        w = self.world
+        for idx, (sx, sy) in enumerate(getattr(w.layout, "wild_slots", [])):
+            slot_key = ("wild", idx)
+            if slot_key in self.generated_pois:
+                continue
+            if w.is_safe_zone(sx, sy):
+                continue
+            cx, cy = sx // CHUNK_SIZE, sy // CHUNK_SIZE
+            w._ensure_chunk(cx, cy)
+            biome = w.chunks.get((cx, cy), {}).get("biome", "Grassland")
+            slot_rng = _random.Random(w.seed ^ (idx * 2654435761) ^ (cx * 1597334677) ^ (cy * 3812015801))
+
+            camp_allowed = biome in ("Forest", "Grassland", "Road", "Swamp")
+            dungeon_allowed = biome in ("Forest", "Swamp", "Mountain")
+            kind = None
+            if camp_allowed and slot_rng.random() < 0.72:
+                kind = "camp"
+            elif dungeon_allowed and slot_rng.random() < 0.55:
+                kind = "dungeon"
+            elif camp_allowed:
+                kind = "camp"
+            elif dungeon_allowed:
+                kind = "dungeon"
+            else:
+                continue
+
+            if kind == "camp":
+                camp_center = _place_camp_marker(w.overrides, w.wall_chars, cx, cy)
+                if camp_center:
+                    ccx, ccy = camp_center
+                    camp_types = ["bandit", "goblin", "orc", "wolf"]
+                    for _ in range(slot_rng.randint(2, 4)):
+                        etype = slot_rng.choice(camp_types)
+                        for _ in range(12):
+                            ex = ccx + slot_rng.randint(-3, 3)
+                            ey = ccy + slot_rng.randint(-3, 3)
+                            if w.is_passable(ex, ey) and not w.is_safe_zone(ex, ey):
+                                w.entities.append(make_entity(etype, ex, ey))
+                                break
+                    self.poi_markers[slot_key] = {"kind": "camp", "x": ccx, "y": ccy}
+                    self.generated_pois.add(slot_key)
+            else:
+                dungeon_center = _place_dungeon_marker(w.overrides, w.wall_chars, cx, cy)
+                if dungeon_center:
+                    dx, dy = dungeon_center
+                    self.poi_markers[slot_key] = {"kind": "dungeon", "x": dx, "y": dy}
+                    self.generated_pois.add(slot_key)
 
     def populate_chunk_if_needed(self, cx: int, cy: int, is_night: bool):
         if (cx, cy) in self.populated:
@@ -205,9 +340,11 @@ class WorldSpawner:
                     for _ in range(20):
                         ex = dcx + _random.randint(-4, 4)
                         ey = dcy + _random.randint(-4, 4)
-                        if w.is_passable(ex, ey) and not _is_safe_zone(ex, ey):
+                        if w.is_passable(ex, ey) and not w.is_safe_zone(ex, ey):
                             e = make_entity("wolf", ex, ey)
-                            e.home_x = dcx; e.home_y = dcy; e.home_radius = 8
+                            e.home_x = dcx
+                            e.home_y = dcy
+                            e.home_radius = 8
                             w.entities.append(e)
                             break
                 return
@@ -221,10 +358,47 @@ class WorldSpawner:
             for _ in range(20):
                 ex = cx0 + _random.randint(1, CHUNK_SIZE - 2)
                 ey = cy0 + _random.randint(1, CHUNK_SIZE - 2)
-                if w.is_passable(ex, ey) and not _is_safe_zone(ex, ey):
+                if w.is_passable(ex, ey) and not w.is_safe_zone(ex, ey):
                     w.entities.append(make_entity(etype, ex, ey))
                     break
 
+        # POI selvaggi: slot semi-stabili del layout, non puro random.
+        layout_slots = getattr(w.layout, "wild_slots", [])
+        for idx, (sx, sy) in enumerate(layout_slots):
+            slot_key = ("wild", idx)
+            if slot_key in self.generated_pois:
+                continue
+            if (sx // CHUNK_SIZE, sy // CHUNK_SIZE) != (cx, cy):
+                continue
+            if w.is_safe_zone(sx, sy):
+                continue
+            if not w.is_passable(sx, sy):
+                continue
+
+            slot_rng = _random.Random(w.seed ^ (idx * 2654435761) ^ (cx * 1597334677) ^ (cy * 3812015801))
+            if biome in ("Forest", "Grassland", "Road", "Swamp") and slot_rng.random() < 0.72:
+                camp_center = _place_camp_marker(w.overrides, w.wall_chars, cx, cy)
+                if camp_center:
+                    ccx, ccy = camp_center
+                    camp_types = ["bandit", "goblin", "orc", "wolf"]
+                    for _ in range(slot_rng.randint(2, 4)):
+                        etype = slot_rng.choice(camp_types)
+                        for _ in range(12):
+                            ex = ccx + slot_rng.randint(-3, 3)
+                            ey = ccy + slot_rng.randint(-3, 3)
+                            if w.is_passable(ex, ey) and not w.is_safe_zone(ex, ey):
+                                w.entities.append(make_entity(etype, ex, ey))
+                                break
+                    self.poi_markers[slot_key] = {"kind": "camp", "x": ccx, "y": ccy}
+                    self.generated_pois.add(slot_key)
+                    continue
+
+            if biome in ("Forest", "Swamp", "Mountain") and slot_rng.random() < 0.45:
+                dungeon_center = _place_dungeon_marker(w.overrides, w.wall_chars, cx, cy)
+                if dungeon_center:
+                    dx, dy = dungeon_center
+                    self.poi_markers[slot_key] = {"kind": "dungeon", "x": dx, "y": dy}
+                    self.generated_pois.add(slot_key)
 
 # =============================================================================
 # VILLAGGI PROCEDURALI
@@ -241,11 +415,34 @@ class WorldSettlements:
         self.world     = world
         self.evaluated : set  = set()
         self.centers   : list = []
+        self.generated_villages: set = set()
+
+    def bootstrap_all(self):
+        """Popola subito tutti i villaggi del layout."""
+        CHUNK_SIZE = 32
+        w = self.world
+        for idx, (_, vx, vy) in enumerate(getattr(w.layout, "village_slots", [])):
+            village_key = ("village", idx)
+            if village_key in self.generated_villages:
+                continue
+            if w.is_safe_zone(vx, vy):
+                continue
+            if self._too_close(vx, vy):
+                continue
+            w._ensure_chunk(vx // CHUNK_SIZE, vy // CHUNK_SIZE)
+            rng = _random.Random(w.seed ^ (idx * 73856093) ^ (vx * 19349663) ^ (vy * 83492791))
+            buildings, wc = place_village(w.overrides, w.wall_chars, vx, vy, rng)
+            w.wall_chars.update(wc)
+            spawn_village_npcs_small(buildings, w.entities, w.overrides, vx, vy)
+            self.centers.append((vx, vy))
+            self.generated_villages.add(village_key)
 
     def _too_close(self, wx, wy):
         for vx, vy in self.centers:
             if (wx-vx)**2 + (wy-vy)**2 < self.MIN_DIST**2:
                 return True
+        if self.world.layout and not self.world.layout.safe_distance_from_capitals(wx, wy, margin=20):
+            return True
         return wx*wx + wy*wy < (self.MIN_DIST * 1.5)**2
 
     def try_generate(self, cx: int, cy: int):
@@ -254,33 +451,28 @@ class WorldSettlements:
         self.evaluated.add((cx, cy))
 
         CHUNK_SIZE = 32
+        w = self.world
         wx0 = cx * CHUNK_SIZE + CHUNK_SIZE // 2
         wy0 = cy * CHUNK_SIZE + CHUNK_SIZE // 2
-        if _is_safe_zone(wx0, wy0):
+        if w.is_safe_zone(wx0, wy0):
             return
 
-        # Deterministico: seed dipende da world seed + posizione chunk
         rng = _random.Random(self.world.seed ^ (cx * 73856093) ^ (cy * 19349663))
-        if rng.random() > self.VILLAGE_CHANCE:
-            return
-        if self._too_close(wx0, wy0):
-            return
-
-        w = self.world
         w.preload_around(wx0, wy0, radius=2)
 
-        # Trova tile passabile per centro villaggio
-        for _ in range(20):
-            vx = cx * CHUNK_SIZE + rng.randint(4, CHUNK_SIZE - 4)
-            vy = cy * CHUNK_SIZE + rng.randint(4, CHUNK_SIZE - 4)
+        for idx, (_, vx, vy) in enumerate(getattr(w.layout, "village_slots", [])):
+            if ("village", idx) in self.generated_villages:
+                continue
+            if (vx // CHUNK_SIZE, vy // CHUNK_SIZE) != (cx, cy):
+                continue
+            if self._too_close(vx, vy):
+                continue
             if not w.is_passable(vx, vy):
                 continue
 
-            # Piazza edifici villaggio
             buildings, wc = place_village(w.overrides, w.wall_chars, vx, vy, rng)
             w.wall_chars.update(wc)
-
-            # Spawna NPC
             spawn_village_npcs_small(buildings, w.entities, w.overrides, vx, vy)
             self.centers.append((vx, vy))
+            self.generated_villages.add(("village", idx))
             break

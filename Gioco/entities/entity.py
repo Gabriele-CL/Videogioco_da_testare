@@ -5,7 +5,6 @@
 import random
 from typing import List, Optional
 from items.item import Item, ITEM_GEN
-from entities.quest import Quest, make_random_quest
 
 NPC_NAMES = ["Tormund","Lyra","Brom","Seera","Dwin","Aldric","Mira","Gruk","Elara","Finn"]
 
@@ -36,11 +35,15 @@ class Entity:
         self.dialogue   = random.choice(NPC_DIALOGUES)
         self.inventory: List[Item] = []
         self.shop: List[Item] = [ITEM_GEN.generate_item() for _ in range(5)]
-        self.has_quest  = (ai_type == "npc") and (random.random() < 0.6)
-        self.quest: Optional[Quest] = make_random_quest() if self.has_quest else None
         self.gold       = 0
         self.defense    = 0
         self.level      = 1
+        self.equipped_weapon: Optional[Item] = None
+        self.equipped_armor: Optional[Item] = None
+        self.equipped_head: Optional[Item] = None
+        self.equipped_legs: Optional[Item] = None
+        self.equipped_shield: Optional[Item] = None
+        self.equipped_boots: Optional[Item] = None
         self.home_x     = x
         self.home_y     = y
         self.home_radius = 8
@@ -51,6 +54,11 @@ class Entity:
         self.work_radius = 4
         self.tavern_x   = x
         self.tavern_y   = y
+        self.behavior_state = "idle"
+        self.behavior_profile = ""
+        self.behavior_seed = random.randint(0, 1_000_000_000)
+        self.social_bias = random.random()
+        self.family_id = None
 
     def populate_shop(self):
         """Popola lo shop in base all'ai_type e al livello."""
@@ -106,6 +114,17 @@ class Entity:
             "sleep_x":   getattr(self, "sleep_x", None),
             "sleep_y":   getattr(self, "sleep_y", None),
             "outdoor_dest_set": bool(getattr(self, "outdoor_dest_set", False)),
+            "equipped_weapon": getattr(self, "equipped_weapon", None).to_dict() if getattr(self, "equipped_weapon", None) else None,
+            "equipped_armor": getattr(self, "equipped_armor", None).to_dict() if getattr(self, "equipped_armor", None) else None,
+            "equipped_head": getattr(self, "equipped_head", None).to_dict() if getattr(self, "equipped_head", None) else None,
+            "equipped_legs": getattr(self, "equipped_legs", None).to_dict() if getattr(self, "equipped_legs", None) else None,
+            "equipped_shield": getattr(self, "equipped_shield", None).to_dict() if getattr(self, "equipped_shield", None) else None,
+            "equipped_boots": getattr(self, "equipped_boots", None).to_dict() if getattr(self, "equipped_boots", None) else None,
+            "behavior_state": getattr(self, "behavior_state", "idle"),
+            "behavior_profile": getattr(self, "behavior_profile", ""),
+            "behavior_seed": getattr(self, "behavior_seed", 0),
+            "social_bias": getattr(self, "social_bias", 0.5),
+            "family_id": getattr(self, "family_id", None),
         }
 
     @staticmethod
@@ -135,6 +154,17 @@ class Entity:
         e.sleep_x    = d.get("sleep_x", None)
         e.sleep_y    = d.get("sleep_y", None)
         e.outdoor_dest_set = bool(d.get("outdoor_dest_set", False))
+        e.equipped_weapon = Item.from_dict(d["equipped_weapon"]) if d.get("equipped_weapon") else None
+        e.equipped_armor = Item.from_dict(d["equipped_armor"]) if d.get("equipped_armor") else None
+        e.equipped_head = Item.from_dict(d["equipped_head"]) if d.get("equipped_head") else None
+        e.equipped_legs = Item.from_dict(d["equipped_legs"]) if d.get("equipped_legs") else None
+        e.equipped_shield = Item.from_dict(d["equipped_shield"]) if d.get("equipped_shield") else None
+        e.equipped_boots = Item.from_dict(d["equipped_boots"]) if d.get("equipped_boots") else None
+        e.behavior_state = d.get("behavior_state", "idle")
+        e.behavior_profile = d.get("behavior_profile", "")
+        e.behavior_seed = d.get("behavior_seed", random.randint(0, 1_000_000_000))
+        e.social_bias = d.get("social_bias", 0.5)
+        e.family_id = d.get("family_id", None)
         saved_shop = d.get("shop", [])
         if saved_shop:
             e.shop = [Item.from_dict(i) for i in saved_shop if i]
@@ -177,6 +207,12 @@ def make_entity(etype: str, x: int, y: int) -> "Entity":
     elif etype == "boar":
         e = Entity("Boar", "o", x, y, 35, 10, 0.9, "aggressive", (160, 100, 60))
         e.level = random.randint(1, 4); return e
+    elif etype == "bandit":
+        e = Entity("Bandit", "X", x, y, 30, 9, 0.95, "aggressive", (180, 120, 70))
+        e.level = random.randint(2, 7); return e
+    elif etype == "orc":
+        e = Entity("Orc", "O", x, y, 42, 13, 0.8, "aggressive", (120, 170, 90))
+        e.level = random.randint(4, 9); return e
     elif etype == "merchant":
         e = Entity("Merchant", "M", x, y, 50, 2, 0.3, "merchant", (0, 220, 220))
         e.level = random.randint(1, 10)
@@ -191,9 +227,9 @@ def make_entity(etype: str, x: int, y: int) -> "Entity":
 BIOME_SPAWNS = {
     "Grassland": [("wolf",3,5),("deer",6,2),("rabbit",8,1),("fox",4,2),("goblin",2,3),("ghost",0,4)],
     "Forest":    [("wolf",4,7),("deer",5,1),("rabbit",5,1),("bear",3,4),("boar",4,3),
-                  ("goblin",3,4),("goblin_shaman",1,2),("ghost",0,5)],
-    "Mountain":  [("wolf",3,6),("bear",4,5),("boar",2,2),("goblin",3,4),("troll",1,2),("ghost",0,3)],
-    "Swamp":     [("ghost",2,8),("goblin",4,5),("goblin_shaman",2,4),("bog_witch",1,2),("fox",2,1)],
-    "Road":      [("goblin",3,5),("wolf",2,4),("deer",3,1),("rabbit",4,1),("ghost",0,3)],
+                  ("goblin",3,4),("goblin_shaman",1,2),("bandit",2,4),("orc",1,2),("ghost",0,5)],
+    "Mountain":  [("wolf",3,6),("bear",4,5),("boar",2,2),("goblin",3,4),("orc",2,3),("troll",1,2),("ghost",0,3)],
+    "Swamp":     [("ghost",2,8),("goblin",4,5),("goblin_shaman",2,4),("bandit",2,3),("bog_witch",1,2),("fox",2,1)],
+    "Road":      [("goblin",3,5),("bandit",4,6),("wolf",2,4),("deer",3,1),("rabbit",4,1),("ghost",0,3)],
     "River":     [("deer",5,2),("fox",3,2),("rabbit",5,1),("ghost",0,4)],
 }

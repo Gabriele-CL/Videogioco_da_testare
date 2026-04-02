@@ -15,9 +15,9 @@ class GameState(Enum):
     ESSENZA_CONFIRM = auto()   # "Sei sicuro delle tue scelte?"
     PLAYING         = auto()
     INVENTORY       = auto()
+    MAP             = auto()
     MERCHANT        = auto()
     DIALOG          = auto()
-    QUEST_LOG       = auto()
     JOURNAL         = auto()
     PAUSE           = auto()
     DEAD            = auto()

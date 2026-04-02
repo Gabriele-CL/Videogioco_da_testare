@@ -4,7 +4,7 @@
 # =============================================================================
 
 import random
-from core.constants import CHUNK_SIZE, NOISE_SCALE, NOISE_OCTAVE, GRASS, WALL, WATER, FOREST, ROAD
+from core.constants import CHUNK_SIZE, NOISE_SCALE, NOISE_OCTAVE, GRASS, WALL, WATER, FOREST, ROAD, WORLD_LIMIT
 from core.utils import pnoise2
 
 # Seed globale — impostato da set_seed() prima di generare qualsiasi chunk
@@ -34,7 +34,7 @@ def get_biome(cx: int, cy: int) -> str:
     if v > -0.3: return "Road"
     return "Swamp"
 
-def generate_chunk(cx: int, cy: int) -> dict:
+def generate_chunk(cx: int, cy: int, layout=None) -> dict:
     """
     Genera un chunk completo alla posizione (cx, cy).
 
@@ -55,6 +55,10 @@ def generate_chunk(cx: int, cy: int) -> dict:
         for tx in range(CHUNK_SIZE):
             wx = cx * CHUNK_SIZE + tx   # coordinata mondo assoluta
             wy = cy * CHUNK_SIZE + ty
+            edge_band = WORLD_LIMIT - 96
+            if abs(wx) >= edge_band or abs(wy) >= edge_band:
+                row.append(WALL)
+                continue
             n  = pnoise2(wx * NOISE_SCALE, wy * NOISE_SCALE,
                          octaves=NOISE_OCTAVE, base=SEED % 256)
             if n > 0.4:
@@ -68,6 +72,8 @@ def generate_chunk(cx: int, cy: int) -> dict:
                 # Nei chunk "Road" mettiamo solo erba rada con pochi alberi
                 tile = FOREST if n > 0.15 else GRASS
             else:
+                tile = GRASS
+            if layout is not None and layout.is_capital_zone(wx, wy):
                 tile = GRASS
             row.append(tile)
         tiles.append(row)

@@ -244,9 +244,11 @@ def draw_hud(screen, fonts, player, biome: str, time_str: str):
 
     row1 = f"Age:{p.age} {p.life_stage.value}  Gold:{p.gold}g"
     row2 = time_str
+    row3 = "I Inventario   J Diario   M Mappa   ESC Pausa"
 
     screen.blit(fsm.render(row1[:max_ch], True, (220, 220, 150)), (tx, HUD_Y + 4))
     screen.blit(fsm.render(row2[:max_ch], True, (150, 200, 150)), (tx, HUD_Y + 22))
+    screen.blit(fsm.render(row3[:max_ch], True, (120, 150, 200)), (tx, HUD_Y + 40))
 
 # =============================================================================
 # OVERLAY NOTTE

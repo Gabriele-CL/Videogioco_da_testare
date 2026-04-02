@@ -6,6 +6,8 @@ from core.constants import (GRASS, WALL, WATER, FOREST, ROAD,
                              FLOOR, DOOR, BUILDING,
                              WALL_H, WALL_V, WALL_C,
                              TILE_CHAR, TILE_COLOR, TILE_BG)
+from world.npc_behavior import NPCBehaviorEngine
+from items.item import Item
 
 # ── Tile arredo interno ───────────────────────────────────────────────────────
 COUNTER = 10   # bancone (bloccante)
@@ -121,6 +123,8 @@ class Building:
             _furnish_locanda(self, world_tiles, wall_chars)
         elif self.btype == "scuola_magia":
             _furnish_scuola_magia(self, world_tiles, wall_chars)
+        elif self.btype == "palace":
+            _furnish_palace(self, world_tiles, wall_chars)
         for pos, tid in self.furniture.items():
             world_tiles[pos] = tid
 
@@ -185,6 +189,147 @@ def _furnish_scuola_magia(b: Building, world_tiles: dict, wall_chars: dict):
                 world_tiles[pos] = FLOOR
 
 
+def _furnish_palace(b: Building, world_tiles: dict, wall_chars: dict):
+    if b.w < 18 or b.h < 14:
+        return
+    wx, wy = b.wx, b.wy
+
+    # Corridoio d'ingresso centrale
+    for dy in range(1, 11):
+        pos = (wx + 8, wy + dy)
+        if pos not in b.furniture:
+            world_tiles[pos] = FLOOR
+
+    # Sala del trono
+    for dx in range(5, 13):
+        for dy in range(1, 5):
+            pos = (wx + dx, wy + dy)
+            if pos not in b.furniture:
+                world_tiles[pos] = FLOOR
+    throne = (wx + 8, wy + 2)
+    b.furniture[throne] = TABLE
+    wall_chars[throne] = "#"
+    world_tiles[throne] = TABLE
+
+    # Camera da letto reale
+    for dx in range(1, 6):
+        for dy in range(5, 9):
+            pos = (wx + dx, wy + dy)
+            if pos not in b.furniture:
+                world_tiles[pos] = FLOOR
+    b.furniture[(wx + 2, wy + 6)] = BARREL
+    wall_chars[(wx + 2, wy + 6)] = "o"
+    b.furniture[(wx + 4, wy + 6)] = TABLE
+    wall_chars[(wx + 4, wy + 6)] = "="
+    world_tiles[(wx + 4, wy + 6)] = TABLE
+
+    # Sala da pranzo
+    for dx in range(12, 17):
+        for dy in range(5, 9):
+            pos = (wx + dx, wy + dy)
+            if pos not in b.furniture:
+                world_tiles[pos] = FLOOR
+    for dx in range(13, 16):
+        pos = (wx + dx, wy + 6)
+        b.furniture[pos] = TABLE
+        wall_chars[pos] = "#"
+        world_tiles[pos] = TABLE
+
+    # Corridoio posteriore con segrete e servitu'
+    for dx in range(4, 14):
+        pos = (wx + dx, wy + 10)
+        if pos not in b.furniture:
+            world_tiles[pos] = FLOOR
+    # Aree laterali posteriori
+    for dx in range(1, 5):
+        for dy in range(10, 13):
+            pos = (wx + dx, wy + dy)
+            if pos not in b.furniture:
+                world_tiles[pos] = FLOOR
+    for dx in range(13, 17):
+        for dy in range(10, 13):
+            pos = (wx + dx, wy + dy)
+            if pos not in b.furniture:
+                world_tiles[pos] = FLOOR
+    # Celle semplici
+    for pos in [(wx + 2, wy + 11), (wx + 3, wy + 11), (wx + 14, wy + 11), (wx + 15, wy + 11)]:
+        b.furniture[pos] = BARREL
+        wall_chars[pos] = "o"
+
+    b.throne_x = throne[0]
+    b.throne_y = throne[1]
+    b.palace_bed_x = wx + 2
+    b.palace_bed_y = wy + 6
+    b.palace_dining_x = wx + 14
+    b.palace_dining_y = wy + 6
+
+
+def place_capital_city(world_tiles: dict, wall_chars: dict, entities_list: list, cx: int, cy: int, rng=None):
+    if rng is None:
+        rng = random
+
+    buildings = []
+    wc_update = {}
+
+    # Città ampia, pulita e senza rumore naturale all'interno
+    city_r = 38
+    for dy in range(-city_r, city_r + 1):
+        for dx in range(-city_r, city_r + 1):
+            world_tiles[(cx + dx, cy + dy)] = GRASS
+
+    city_wall, city_wc = place_city_walls(world_tiles, cx, cy)
+    wc_update.update(city_wc)
+
+    # Palazzo reale al centro
+    palace = Building(cx - 9, cy - 7, 18, 14, "palace")
+    buildings.append(palace)
+    for (tx, ty), tid in palace.tiles().items():
+        world_tiles[(tx, ty)] = tid
+    wc_update.update(palace.wall_chars())
+    _furnish_palace(palace, world_tiles, wc_update)
+
+    # Case ed edifici civili
+    layout = [
+        (-28, -18, "casa"),
+        (-8, -20, "bottega"),
+        (10, -20, "locanda"),
+        (28, -16, "casa"),
+        (-28, 4, "casa"),
+        (28, 6, "ambulatorio"),
+        (-14, 22, "scuola_magia"),
+        (14, 22, "chiesa"),
+    ]
+    rng.shuffle(layout)
+    for ox, oy, btype in layout:
+        bw, bh = (10, 8)
+        if btype in ("locanda", "scuola_magia"):
+            bw, bh = (14, 10)
+        elif btype == "chiesa":
+            bw, bh = (12, 10)
+        elif btype == "bottega":
+            bw, bh = (14, 10)
+        bx = cx + ox - bw // 2
+        by = cy + oy - bh // 2
+        b = Building(bx, by, bw, bh, btype)
+        buildings.append(b)
+        buf = 2
+        for dy in range(-buf, bh + buf):
+            for dx in range(-buf, bw + buf):
+                world_tiles[(bx + dx, by + dy)] = GRASS
+        for (tx, ty), tid in b.tiles().items():
+            world_tiles[(tx, ty)] = tid
+        wc_update.update(b.wall_chars())
+        b.furnish(world_tiles, wc_update)
+
+    wall_chars.update(wc_update)
+
+    # NPC capitali: re, regina, amministratori, guardie
+    spawn_capital_npcs(buildings, entities_list, world_tiles, cx, cy)
+    spawn_village_npcs(buildings, entities_list, world_tiles)
+    spawn_guards(city_wall, entities_list, world_tiles)
+    return buildings, wc_update, city_wall
+
+
 # =============================================================================
 # Insegne
 # =============================================================================
@@ -194,6 +339,7 @@ _SIGN_LABELS = {
     "chiesa":       "[ CHIESA  ]",
     "ambulatorio":  "[ MEDICO  ]",
     "scuola_magia": "[ MAGIA   ]",
+    "palace":       "[ PALAZZO ]",
     "casa":         "",
 }
 def _sign_label(btype): return _SIGN_LABELS.get(btype, "")
@@ -626,8 +772,6 @@ def _make_npc(info: dict, pos: tuple, buildings: list) -> Entity:
     e.damage = e.defense = 0
     e.level           = 1
     e.dialogue        = info["dialogue"]
-    e.has_quest       = False
-    e.quest           = None
     e.gold            = 0
     e.shop            = []
     e.home_x          = pos[0]
@@ -670,7 +814,33 @@ def _make_npc(info: dict, pos: tuple, buildings: list) -> Entity:
         e.level = random.randint(1, 4)
         e.shop  = [ITEM_GEN.generate_innkeeper_item(_rarity_for_level(e.level)) for _ in range(4)]
 
+    NPCBehaviorEngine.configure_npc(e, buildings)
     return e
+
+
+def _equip_guard(e: Entity, elite: bool = False):
+    if elite:
+        sword = Item("Royal Sword", "weapon", "/", "rare", {"damage": 14, "crit_chance": 0.08}, "Sword of the royal guard", 120)
+        armor = Item("Royal Armor", "armor", "[", "rare", {"defense": 8}, "Armor of the royal guard", 160)
+        helm = Item("Royal Helm", "helmet", "^", "rare", {"defense": 4}, "Helm of the royal guard", 90)
+        legs = Item("Royal Greaves", "legs", "L", "rare", {"defense": 4}, "Greaves of the royal guard", 90)
+        shield = Item("Royal Shield", "shield", "O", "rare", {"defense": 5}, "Shield of the royal guard", 80)
+        boots = Item("Royal Boots", "boots", "v", "rare", {"defense": 2}, "Boots of the royal guard", 40)
+    else:
+        sword = Item("Steel Sword", "weapon", "/", "uncommon", {"damage": 10, "crit_chance": 0.05}, "Sword for a city guard", 70)
+        armor = Item("Chain Armor", "armor", "[", "uncommon", {"defense": 5}, "Armor for a city guard", 80)
+        helm = Item("Iron Helm", "helmet", "^", "common", {"defense": 2}, "Helmet for a city guard", 30)
+        legs = Item("Guard Leggings", "legs", "L", "common", {"defense": 2}, "Leg protection", 30)
+        shield = Item("Wooden Shield", "shield", "O", "common", {"defense": 2}, "Shield for a city guard", 25)
+        boots = Item("Leather Boots", "boots", "v", "common", {"defense": 1}, "Boots for a city guard", 20)
+    e.equipped_weapon = sword
+    e.equipped_armor = armor
+    e.equipped_head = helm
+    e.equipped_legs = legs
+    e.equipped_shield = shield
+    e.equipped_boots = boots
+    e.damage = sword.stats.get("damage", e.damage)
+    e.defense = armor.stats.get("defense", 0) + helm.stats.get("defense", 0) + legs.stats.get("defense", 0) + shield.stats.get("defense", 0) + boots.stats.get("defense", 0)
 
 
 # =============================================================================
@@ -757,8 +927,6 @@ def spawn_guards(city_wall, entities_list, world_tiles):
         e.defense         = 5
         e.level           = random.randint(3,7)
         e.dialogue        = "Alt! Chi va là?"
-        e.has_quest       = False
-        e.quest           = None
         e.gold            = random.randint(10,30)
         e.shop            = []
         e.home_x          = patrol_x
@@ -767,27 +935,29 @@ def spawn_guards(city_wall, entities_list, world_tiles):
         e.patrol_x        = patrol_x
         e.patrol_y        = patrol_y
         e.is_gate_guard   = False
+        e.guard_stage     = 0
         e.npc_role        = "guardia"
         e.sleep_x         = None
         e.sleep_y         = None
         e.outdoor_dest_set = False
+        _equip_guard(e, elite=False)
         return e
 
-    # Guardie porta Nord: fuori (gn_y-1), ai lati
+    # Guardie porta Nord: fuori (gn_y-1), flangiano l'ingresso
     gn_x,gn_y = city_wall.gate_n
     for dx in [-2, 2]:
         pos = (gn_x+dx, gn_y-1)
         if pos not in occupied and world_tiles.get(pos, GRASS) in (GRASS, FLOOR):
-            g = make_guard(pos[0], pos[1], gn_x, gn_y-1)
+            g = make_guard(pos[0], pos[1], pos[0], pos[1])
             g.is_gate_guard = True
             entities_list.append(g); occupied.add(pos)
 
-    # Guardie porta Sud: fuori (gs_y+1), ai lati
+    # Guardie porta Sud: fuori (gs_y+1), flangiano l'ingresso
     gs_x,gs_y = city_wall.gate_s
     for dx in [-2, 2]:
         pos = (gs_x+dx, gs_y+1)
         if pos not in occupied and world_tiles.get(pos, GRASS) in (GRASS, FLOOR):
-            g = make_guard(pos[0], pos[1], gs_x, gs_y+1)
+            g = make_guard(pos[0], pos[1], pos[0], pos[1])
             g.is_gate_guard = True
             entities_list.append(g); occupied.add(pos)
 
@@ -839,6 +1009,77 @@ def spawn_village_npcs_small(buildings, entities_list, world_tiles, cx, cy):
             e=_make_npc(info,pos,buildings)
             occupied.add(pos); entities_list.append(e)
 
+
+# =============================================================================
+# spawn_capital_npcs
+# =============================================================================
+def spawn_capital_npcs(buildings, entities_list, world_tiles, cx, cy):
+    if not buildings:
+        return
+
+    palace = _building_of_type(buildings, "palace")
+    city_guard = _building_of_type(buildings, "bottega", "locanda", "casa") or buildings[0]
+    occupied = {(e.x, e.y) for e in entities_list}
+
+    def add_custom(name, symbol, color, ai, pos, role, dialogue, prefers=None):
+        info = {
+            "name": name,
+            "symbol": symbol,
+            "color": color,
+            "ai": ai,
+            "dialogue": dialogue,
+            "prefers": prefers or [],
+            "role": role,
+        }
+        e = _make_npc(info, pos, buildings)
+        if ai == "royal":
+            e.home_radius = 0
+            e.work_radius = 0
+            e.is_royal = True
+        entities_list.append(e)
+        occupied.add(pos)
+        return e
+
+    # Guardia d'ingresso al palazzo: prima avvisa, poi diventa combattimento
+    if palace:
+        gate_x = palace.door_x
+        gate_y = palace.door_y - 1
+        for dx in (-1, 1):
+            pos = (gate_x + dx, gate_y)
+            if pos not in occupied and world_tiles.get(pos, GRASS) in (GRASS, FLOOR):
+                g = add_custom("Guardia Reale", "G", (220, 220, 90), "guard", pos, "guardia",
+                               "Alt! Il palazzo e' chiuso al pubblico.")
+                g.is_palace_guard = True
+                g.warned_once = False
+                g.guard_stage = 0
+                _equip_guard(g, elite=True)
+
+    # Royalties
+    if palace:
+        add_custom("Re", "R", (255, 220, 120), "royal", (palace.wx + 8, palace.wy + 2), "re",
+                   "Il regno e' sotto la mia protezione.", ["palace"])
+        add_custom("Regina", "Q", (255, 200, 220), "royal", (palace.wx + 9, palace.wy + 2), "regina",
+                   "La corona porta anche doveri.", ["palace"])
+        # Servizio interno
+        for pos in [(palace.wx + 2, palace.wy + 10), (palace.wx + 14, palace.wy + 10)]:
+            if pos not in occupied and world_tiles.get(pos, GRASS) in (GRASS, FLOOR):
+                add_custom("Servitore", "s", (200, 200, 180), "wander", pos, "servitore",
+                           "La servitu' non si ferma mai.", ["palace"])
+
+    # Nobili e amministratori sparsi nella capitale
+    city_roles = [
+        ("Amministratore", "n", (220, 180, 120), "wander", "amministratore", "Gli ordini della capitale sono chiari."),
+        ("Nobile", "N", (240, 220, 180), "wander", "nobile", "La citta' deve prosperare."),
+        ("Nobile", "N", (240, 220, 180), "wander", "nobile", "Il commercio e' la linfa della citta'."),
+    ]
+    houses = [b for b in buildings if b.btype in ("casa", "locanda", "bottega")]
+    for idx, (name, symbol, color, ai, role, dialogue) in enumerate(city_roles):
+        if idx >= len(houses):
+            break
+        house = houses[idx]
+        pos = (house.wx + house.w // 2, house.wy + house.h // 2)
+        if pos not in occupied and world_tiles.get(pos, GRASS) in (GRASS, FLOOR):
+            add_custom(name, symbol, color, ai, pos, role, dialogue, ["casa"])
 
 # =============================================================================
 # draw_building_labels — insegne sopra la porta (Opzione A)

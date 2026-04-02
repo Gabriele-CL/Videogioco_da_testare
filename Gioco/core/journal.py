@@ -6,12 +6,8 @@ from typing import List, Optional
 
 # Categorie eventi con colore associato per la UI
 EVENT_CATEGORIES = {
-    "combat":    {"label": "Combattimento", "color": (220,  80,  80)},
     "discovery": {"label": "Scoperta",      "color": ( 80, 180, 255)},
-    "item":      {"label": "Oggetto",       "color": (255, 180,  30)},
     "quest":     {"label": "Quest",         "color": (100, 220, 130)},
-    "level":     {"label": "Livello",       "color": (200, 170, 255)},
-    "death":     {"label": "Morte",         "color": (160, 160, 160)},
     "social":    {"label": "Sociale",       "color": (255, 220, 100)},
     "misc":      {"label": "Altro",         "color": (180, 180, 180)},
 }
